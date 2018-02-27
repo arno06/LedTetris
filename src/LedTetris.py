@@ -68,50 +68,58 @@ class MAX7219:
         self.spi.close()
 
 
-def tick():
-    global part
-    position[1] = position[1] + 1
-    temp = copy.deepcopy(canvas)
-    contact = False
-    for i in range(len(part)):
-        if position[1] + part[i][0] >= 31 or canvas[position[1] + part[i][0]+1][position[0] + part[i][1]] == 1:
-            contact = True
+class LedTetris:
 
-    if contact:
-        apply_part(canvas)
-        matrix.set_canvas(canvas)
-        position[1] = 0
-        part = parts[random.randint(0, len(parts)-1)]
-    else:
-        apply_part(temp)
-        matrix.set_canvas(temp)
+    PIECES = [
+        [[0, 0], [1, 0], [0, 1], [1, 1]],  # O
+        [[0, 0], [1, 0], [2, 0], [3, 0]],  # I
+        [[0, 0], [0, 1], [1, 1], [2, 1]],  # L
+        [[0, 1], [1, 1], [2, 1], [2, 0]],  # J
+        [[0, 0], [1, 0], [1, 1], [2, 1]],  # Z
+        [[1, 0], [2, 0], [0, 1], [1, 1]],  # S
+        [[1, 0], [0, 1], [1, 1], [2, 1]]   # T
+    ]
+
+    def __init__(self):
+        self.canvas = [[0 for k in range(8)] for i in range(8*4)]
+        self.piece_position = [3, -1]
+        self.piece = self.pick_piece()
+        self.matrix = MAX7219()
+        self.matrix.set_canvas(self.canvas)
+
+    def pick_piece(self):
+        return self.PIECES[random.randint(0, len(self.PIECES)-1)]
+
+    def tick(self):
+        self.piece_position[1] = self.piece_position[1] + 1
+        contact = False
+        for i in range(len(self.piece)):
+            if self.piece_position[1] + self.piece[i][0] >= 31 or self.canvas[self.piece_position[1] + self.piece[i][0]+1][self.piece_position[0] + self.piece[i][1]] == 1:
+                contact = True
+
+        if contact:
+            self.apply_piece(self.canvas)
+            self.matrix.set_canvas(self.canvas)
+            self.piece_position[1] = -1
+            self.piece = self.pick_piece()
+        else:
+            temp = copy.deepcopy(self.canvas)
+            self.apply_piece(temp)
+            self.matrix.set_canvas(temp)
+
+    def apply_piece(self, canvas):
+        for i in range(len(self.piece)):
+            canvas[self.piece_position[1] + self.piece[i][0]][self.piece_position[0] + self.piece[i][1]] = 1
+
+    def end(self):
+        self.matrix.close()
 
 
-def apply_part(context):
-    for i in range(len(part)):
-        context[position[1] + part[i][0]][position[0] + part[i][1]] = 1
-
-
-canvas = [[0 for k in range(8)] for i in range(8*4)]
-
-parts = [
-    [[0, 0], [1, 0], [0, 1], [1, 1]],
-    [[0, 0], [1, 0], [2, 0], [3, 0]],
-    [[0, 0], [0, 1], [1, 1], [2, 1]],
-    [[0, 1], [1, 1], [2, 1], [2, 0]],
-    [[0, 0], [1, 0], [1, 1], [2, 1]],
-    [[1, 0], [2, 0], [0, 1], [1, 1]],
-    [[1, 0], [0, 1], [1, 1], [2, 1]]
-]
-
-part = parts[0]
-position = [3, 0]
-matrix = MAX7219()
-matrix.set_canvas(canvas)
+game = LedTetris()
 
 try:
     while True:
-        tick()
+        game.tick()
         time.sleep(1)
 except KeyboardInterrupt:
-    matrix.close()
+    game.end()
