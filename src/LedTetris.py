@@ -86,11 +86,15 @@ class LedTetris:
         self.piece = self.pick_piece()
         self.matrix = MAX7219()
         self.matrix.set_canvas(self.canvas)
+        self.ticker = 1000
+        self.ticker_timestamp = None
 
     def pick_piece(self):
         return self.PIECES[random.randint(0, len(self.PIECES)-1)]
 
     def tick(self):
+        if not self.is_it_time():
+            return
         self.piece_position[1] = self.piece_position[1] + 1
         contact = False
         for i in range(len(self.piece)):
@@ -107,6 +111,13 @@ class LedTetris:
             self.apply_piece(temp)
             self.matrix.set_canvas(temp)
 
+    def is_it_time(self):
+        timestamp = time.time() * 1000
+        if self.ticker_timestamp is None or timestamp - self.ticker_timestamp >= self.ticker:
+            self.ticker_timestamp = timestamp
+            return True
+        return False
+
     def apply_piece(self, canvas):
         for i in range(len(self.piece)):
             canvas[self.piece_position[1] + self.piece[i][0]][self.piece_position[0] + self.piece[i][1]] = 1
@@ -120,6 +131,5 @@ game = LedTetris()
 try:
     while True:
         game.tick()
-        time.sleep(1)
 except KeyboardInterrupt:
     game.end()
