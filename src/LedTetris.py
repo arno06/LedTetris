@@ -1,4 +1,6 @@
 import spidev
+from bluetooth import *
+import threading
 import time
 import copy
 import random
@@ -122,14 +124,78 @@ class LedTetris:
         for i in range(len(self.piece)):
             canvas[self.piece_position[1] + self.piece[i][0]][self.piece_position[0] + self.piece[i][1]] = 1
 
+    def move_piece_to_left(self):
+        self.piece_position[0] = self.piece_position[0] - 1
+        self.refresh()
+
+    def move_piece_to_right(self):
+        self.piece_position[0] = self.piece_position[0] + 1
+        self.refresh()
+
+    def refresh(self):
+        temp = copy.deepcopy(self.canvas)
+        self.apply_piece(temp)
+        self.matrix.set_canvas(temp)
+
     def end(self):
         self.matrix.close()
 
 
+class BluetoothThread(threading.Thread):
+    def __init__(self, command_callback):
+        threading.Thread.__init__(self)
+        self.server_socket = BluetoothSocket(RFCOMM)
+        self.server_socket.bind(("", PORT_ANY))
+        self.server_socket.listen(1)
+        self.connected = False
+        self.client_socket = None
+        self.client_info = None
+        self.command_callback = command_callback
+        self.running = True
+
+    def await_connection(self):
+        if self.connected:
+            return
+        self.client_socket, self.client_info = self.server_socket.accept()
+        self.connected = self.client_socket is not None and self.client_info is not None
+
+    def run(self):
+        while self.running:
+            self.await_connection()
+            try:
+                data = self.client_socket.recv(1024)
+                if len(data) == 0:
+                    pass
+                self.command_callback(data)
+            except IOError:
+                pass
+
+    def close(self):
+        if self.connected:
+            self.client_socket.close()
+        self.server_socket.close()
+
+    def kill(self):
+        self.running = False
+
+
+def on_command(data):
+    if data == "left":
+        game.move_piece_to_left()
+    if data == "right":
+        game.move_piece_to_right()
+    print(data)
+
+
+btThread = BluetoothThread(on_command)
 game = LedTetris()
+
+btThread.start()
 
 try:
     while True:
-        game.tick()
+        if btThread.connected:
+            game.tick()
 except KeyboardInterrupt:
+    btThread.kill()
     game.end()
