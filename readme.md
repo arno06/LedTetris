@@ -6,7 +6,7 @@ Repository for a simple Tetris game running on a raspberry pi zero w with a dot 
 Requirements
 ------
  * Raspberry PI (tested on a zero w)
- * [Dot Matrix MAX7219] (https://www.google.fr/search?q=max7219+dot+matrix&oq=max7219+dot+matrix)
+ * [Dot Matrix MAX7219](https://www.google.fr/search?q=max7219+dot+matrix&oq=max7219+dot+matrix)
  * Android Device
 
 Setup
@@ -24,9 +24,9 @@ Make sure to setup bluetooth properly, meaning:
 ### Dot Matrix MAX7219
 
 3 steps:
- * enable SPI into raspi-config
- * install spidev
- * connect it (https://fr.pinout.xyz/pinout/)
+ * Enable SPI into raspi-config
+ * Install spidev
+ * [Connect it](https://fr.pinout.xyz/pinout/)
    * VCC : pin 2
    * Ground : pin 6
    * DataIn : pin 19
