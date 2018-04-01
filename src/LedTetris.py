@@ -4,6 +4,7 @@ import threading
 import time
 import copy
 import random
+import math
 
 
 class MAX7219:
@@ -100,7 +101,7 @@ class LedTetris:
         self.piece_position[1] = self.piece_position[1] + 1
         contact = False
         for i in range(len(self.piece)):
-            if self.piece_position[1] + self.piece[i][0] >= 31 or self.canvas[self.piece_position[1] + self.piece[i][0]+1][self.piece_position[0] + self.piece[i][1]] == 1:
+            if self.piece_position[1] + self.piece[i][1] >= 31 or self.canvas[self.piece_position[1] + self.piece[i][1]+1][self.piece_position[0] + self.piece[i][0]] == 1:
                 contact = True
 
         if contact:
@@ -122,15 +123,53 @@ class LedTetris:
 
     def apply_piece(self, canvas):
         for i in range(len(self.piece)):
-            canvas[self.piece_position[1] + self.piece[i][0]][self.piece_position[0] + self.piece[i][1]] = 1
+            canvas[self.piece_position[1] + self.piece[i][1]][self.piece_position[0] + self.piece[i][0]] = 1
 
     def move_piece_to_left(self):
+        for p in self.piece:
+            if self.piece_position[0] + p[0] - 1 < 0 or self.is_led_on(self.piece_position[0] + p[0] - 1, self.piece_position[1] + p[1]):
+                return
         self.piece_position[0] = self.piece_position[0] - 1
         self.refresh()
 
     def move_piece_to_right(self):
+        for p in self.piece:
+            if self.piece_position[0] + p[0] + 1 > 7 or self.is_led_on(self.piece_position[0] + p[0] + 1, self.piece_position[1] + p[1]):
+                return
         self.piece_position[0] = self.piece_position[0] + 1
         self.refresh()
+
+    def clockwise_rotate_piece(self):
+        self.rotate_piece(90)
+
+    def anticlockwise_rotate_piece(self):
+        self.rotate_piece(-90)
+
+    def rotate_piece(self, rotation_angle):
+        rad = rotation_angle * (math.pi / 180)
+
+        cos = math.cos(rad)
+        sin = math.sin(rad)
+
+        rotated_piece = []
+
+        for p in self.piece:
+            rotated_p = [
+                int(round((cos * p[0]) - (sin * p[1]))),
+                int(round((p[0] * sin) + (cos * p[1])))
+            ]
+            if self.is_out_of_boundary(self.piece_position[0] + rotated_p[0], self.piece_position[1] + rotated_p[1]) or self.is_led_on (self.piece_position[0] + rotated_p[0], self.piece_position[1] + rotated_p[1]):
+                return
+            rotated_piece.append(rotated_p)
+
+        self.piece = rotated_piece
+        self.refresh()
+
+    def is_led_on(self, x, y):
+        return self.canvas[y][x] == 1
+
+    def is_out_of_boundary(self, x, y):
+        return not (0 <= x < len(self.canvas[0])) or not(0 <= y < len(self.canvas))
 
     def refresh(self):
         temp = copy.deepcopy(self.canvas)
@@ -156,8 +195,10 @@ class BluetoothThread(threading.Thread):
     def await_connection(self):
         if self.connected:
             return
+        print("Waiting for BlueController")
         self.client_socket, self.client_info = self.server_socket.accept()
         self.connected = self.client_socket is not None and self.client_info is not None
+        print("Connected")
 
     def run(self):
         while self.running:
@@ -184,6 +225,10 @@ def on_command(data):
         game.move_piece_to_left()
     if data == "right":
         game.move_piece_to_right()
+    if data == "A":
+        game.clockwise_rotate_piece()
+    if data == "B":
+        game.anticlockwise_rotate_piece()
     print(data)
 
 
