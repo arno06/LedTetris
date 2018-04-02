@@ -36,7 +36,7 @@ Make sure to setup bluetooth properly, meaning:
 
 ### Android Device
 
-TBD
+see [BlueController Repository](https://github.com/arno06/BlueController)
 
 
 Classes
@@ -66,7 +66,5 @@ Take one List (of row, each row being List of int values) and send the proper co
 
 #### def close()
 Make sure every thing is stopped (led turned off & spidev closed)
-
-### LedTetris
 
 ### BluetoothThread
