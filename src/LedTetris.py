@@ -8,6 +8,9 @@ import math
 
 
 class MAX7219:
+    ON = 1
+    OFF = 0
+
     REG_NOOP = 0x00
     REG_DECODEMODE = 0x09
     REG_INTENSITY = 0x0A
@@ -40,13 +43,13 @@ class MAX7219:
     def turn_on(self):
         i = 1
         while i <= self.led:
-            self.broadcast_command([i, 1])
+            self.broadcast_command([i, MAX7219.ON])
             i = i + 1
 
     def turn_off(self):
         i = 1
         while i <= self.led:
-            self.broadcast_command([i, 0])
+            self.broadcast_command([i, MAX7219.OFF])
             i = i + 1
 
     def set_intensity(self, value):
@@ -91,28 +94,64 @@ class LedTetris:
         self.matrix.set_canvas(self.canvas)
         self.ticker = 1000
         self.ticker_timestamp = None
+        self.running = True
+        self.score = 0
 
     def pick_piece(self):
         return self.PIECES[random.randint(0, len(self.PIECES)-1)]
 
     def tick(self):
-        if not self.is_it_time():
+        if not self.is_it_time() or not self.running:
             return
         self.piece_position[1] = self.piece_position[1] + 1
         contact = False
         for i in range(len(self.piece)):
-            if self.piece_position[1] + self.piece[i][1] >= 31 or self.canvas[self.piece_position[1] + self.piece[i][1]+1][self.piece_position[0] + self.piece[i][0]] == 1:
+            if self.piece_position[1] + self.piece[i][1] >= 31:
+                contact = True
+                continue
+
+            if self.canvas[self.piece_position[1] + self.piece[i][1] + 1][self.piece_position[0] + self.piece[i][0]] == 1:
                 contact = True
 
         if contact:
             self.apply_piece(self.canvas)
             self.matrix.set_canvas(self.canvas)
-            self.piece_position[1] = -1
+            self.piece_position = [3, -1]
             self.piece = self.pick_piece()
+
+            completed_lines = []
+            for k,l in enumerate(self.canvas):
+                completed = True
+                for led in l:
+                    completed = completed and led is 1
+                if completed:
+                    completed_lines.append(k)
+            if len(completed_lines) > 0:
+                self.running = False
+                for i in completed_lines:
+                    self.set_line(i, MAX7219.OFF)
+                time.sleep(0.5)
+                for i in completed_lines:
+                    self.set_line(i, MAX7219.ON)
+                time.sleep(0.5)
+                for i in completed_lines:
+                    self.set_line(i, MAX7219.OFF)
+                time.sleep(0.5)
+                for i in completed_lines:
+                    self.canvas.pop(i)
+                    self.canvas.insert(0, [MAX7219.OFF for k in range(8)])
+                self.increment_score(len(completed_lines))
+                self.running = True
+
         else:
             temp = copy.deepcopy(self.canvas)
             self.apply_piece(temp)
             self.matrix.set_canvas(temp)
+
+    def increment_score(self, count_lines):
+        self.score = self.score + (count_lines * 10)
+        self.ticker = self.ticker - (count_lines * 10)
+        self.ticker = max(self.ticker, 300)
 
     def is_it_time(self):
         timestamp = time.time() * 1000
@@ -121,22 +160,35 @@ class LedTetris:
             return True
         return False
 
+    def set_line(self, y, state):
+        if y < 0 or y > len(self.canvas)-1:
+            return
+        self.canvas[y] = [state for i in range(8)]
+        self.refresh()
+
     def apply_piece(self, canvas):
         for i in range(len(self.piece)):
             canvas[self.piece_position[1] + self.piece[i][1]][self.piece_position[0] + self.piece[i][0]] = 1
 
-    def move_piece_to_left(self):
+    def move_piece_left(self):
         for p in self.piece:
             if self.piece_position[0] + p[0] - 1 < 0 or self.is_led_on(self.piece_position[0] + p[0] - 1, self.piece_position[1] + p[1]):
                 return
         self.piece_position[0] = self.piece_position[0] - 1
         self.refresh()
 
-    def move_piece_to_right(self):
+    def move_piece_right(self):
         for p in self.piece:
             if self.piece_position[0] + p[0] + 1 > 7 or self.is_led_on(self.piece_position[0] + p[0] + 1, self.piece_position[1] + p[1]):
                 return
         self.piece_position[0] = self.piece_position[0] + 1
+        self.refresh()
+
+    def move_piece_down(self):
+        for p in self.piece:
+            if self.piece_position[1] + p[1] + 1 > 31 or self.is_led_on(self.piece_position[0] + p[0], self.piece_position[1] + p[1] + 1):
+                return
+        self.piece_position[1] = self.piece_position[1] + 1
         self.refresh()
 
     def clockwise_rotate_piece(self):
@@ -221,10 +273,12 @@ class BluetoothThread(threading.Thread):
 
 
 def on_command(data):
+    if data == "bottom":
+        game.move_piece_down()
     if data == "left":
-        game.move_piece_to_left()
+        game.move_piece_left()
     if data == "right":
-        game.move_piece_to_right()
+        game.move_piece_right()
     if data == "A":
         game.clockwise_rotate_piece()
     if data == "B":
