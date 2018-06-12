@@ -168,6 +168,9 @@ class LedTetris:
 
     def apply_piece(self, canvas):
         for i in range(len(self.piece)):
+            if self.is_out_of_boundary(self.piece_position[0] + self.piece[i][0], self.piece_position[1] + self.piece[i][1]):
+                print("Out of Boundary: %s, %s", self.piece_position[0] + self.piece[i][0], self.piece_position[1] + self.piece[i][1])
+                continue
             canvas[self.piece_position[1] + self.piece[i][1]][self.piece_position[0] + self.piece[i][0]] = 1
 
     def move_piece_left(self):
@@ -186,8 +189,11 @@ class LedTetris:
 
     def move_piece_down(self):
         for p in self.piece:
-            if self.piece_position[1] + p[1] + 1 > 31 or self.is_led_on(self.piece_position[0] + p[0], self.piece_position[1] + p[1] + 1):
+            if self.is_out_of_boundary(self.piece_position[0] + p[0], self.piece_position[1] + p[1] + 1):
                 return
+            if self.is_led_on(self.piece_position[0] + p[0], self.piece_position[1] + p[1] + 1):
+                return
+        self.ticker_timestamp = time.time() * 1000
         self.piece_position[1] = self.piece_position[1] + 1
         self.refresh()
 
@@ -262,13 +268,13 @@ class BluetoothThread(threading.Thread):
                 self.command_callback(data)
             except IOError:
                 pass
+        print("Bluetooth ended")
 
     def close(self):
         if self.connected:
             self.client_socket.close()
         self.server_socket.close()
-
-    def kill(self):
+        self.connected = False
         self.running = False
 
 
@@ -296,5 +302,5 @@ try:
         if btThread.connected:
             game.tick()
 except KeyboardInterrupt:
-    btThread.kill()
+    btThread.close()
     game.end()
